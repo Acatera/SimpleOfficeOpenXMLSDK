@@ -81,7 +81,6 @@ type
     destructor Destroy; override;
 
     procedure AddRule(Rule: TFormattingRule);
-//    function FindRule(ID: string): TFormattingRule; overload;
     property Count: Integer read GetCount;
   end;
   
@@ -640,20 +639,7 @@ destructor TFormattingRules.Destroy;
 begin
   fList.Free;
 end;
-//
-//function TFormattingRules.FindRule(ID: string): TFormattingRule;
-//var
-//  i: Integer;
-//begin
-//  Result := nil;
-//  for i := 0 to fList.Count - 1 do begin
-//    if (TFormattingRule(fList[i]).ID = ID) then begin
-//      Result := TFormattingRule(fList[i]);
-//      Break;
-//    end;
-//  end;
-//end;
-//
+
 function TFormattingRules.GetCount: Integer;
 begin
   Result := fList.Count;
@@ -667,7 +653,7 @@ begin
 
   fNumFmts := TStringList.Create;
   fFonts := TFontList.Create(False);
-  fFills := TObjectList.Create(False); //You need to remember to remove the two fills you have added
+  fFills := TObjectList.Create(False); 
   fBorders := TObjectList.Create;
   fCellStyleXfs := TObjectList.Create;
   fCellXfs := TObjectList.Create;
@@ -688,8 +674,6 @@ var
   i: Integer;
   Rule: TFormattingRule;
 begin
-  fFills.Add(TFill.Create(ftNone, $1FFFFFFF, $1FFFFFFF));
-  fFills.Add(TFill.Create(ftNone, $1FFFFFFF, $1FFFFFFF));
   fBorders.Add(TBorders.Create(nil, nil, nil, nil));
   
   for i := 0 to fStyles.Count - 1 do begin
@@ -837,14 +821,13 @@ var
   i: Integer;
   Fill: IXMLNode;
   Node: IXMLNode;
+  DummyFill: TFill;
 begin
-    {
-    <fill>
-      <patternFill patternType="solid">
-        <fgColor rgb="FFFFFF00"/>
-        <bgColor rgb="0000FFFF"/>
-      </patternFill>
-    </fill>}
+  DummyFill := TFill.Create(ftNone, $1FFFFFFF, $1FFFFFFF);
+  try
+    fFills.Insert(0, DummyFill); //Excel seems to need these empty fills;
+    fFills.Insert(0, DummyFill);
+    
     for i := 0 to fFills.Count - 1 do begin
       Fill := FillsNode.AddChild('fill');
       if (TFill(fFills[i]).FillType <> ftNone) then begin
@@ -854,6 +837,9 @@ begin
         Node.AddChild('bgColor').Attributes['rgb'] := IntToHex(TFill(fFills[i]).Background, 8);
       end;
     end;
+  finally
+    DummyFill.Free;
+  end;
 end;
 
 procedure TStylesWriter.SaveBorders(BordersNode: IXMLNode);
@@ -1097,7 +1083,7 @@ begin
 
     ArchiveFile(fWorkingDir + FileDir, fFilePath);
   finally
-//    CleanDirs(fWorkingDir + FileDir);
+    CleanDirs(fWorkingDir + FileDir);
   end;
 end;
 
