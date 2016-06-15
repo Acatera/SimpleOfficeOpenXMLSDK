@@ -6,8 +6,8 @@ uses
   Graphics, Contnrs, XMLDoc, XMLIntf, Classes, Types;
 
 type  
-  THorizontalAlignment = (taLeft, taCenter, taRight);
-  TVerticalAlignment = (taTop, taMiddle, taBottom);
+  THorizontalAlignment = (haLeft, haCenter, haRight);
+  TVerticalAlignment = (vaTop, vaMiddle, vaBottom);
 
   TAlignment = class
     Horizontal: THorizontalAlignment;
@@ -141,9 +141,11 @@ type
     fRowHeights: array of Double;
     fPrintRows: string;
     fPrintCols: string;
+    fFrozenPaneSplit: TCellCoord;
     procedure SetColCount(const Value: Integer);
     
     procedure SetRowCapacity(Count: Integer);
+    procedure SaveSheetViewsData(ParentNode: IXMLNode);
     procedure SaveColumnData(ParentNode: IXMLNode);
     procedure SaveCellFormat(Cell: TCell; CellNode: IXMLNode; Col, Row: Integer);
     procedure SaveFormulaCell(Cell: TCell; CellNode: IXMLNode; Col, Row: Integer);
@@ -170,6 +172,7 @@ type
     procedure MergeCells(Col1, Row1, Col2, Row2: Integer);
     procedure SaveToFile(const FileName: string);
     procedure SetPrintTitle(Rows, Cols: string);
+    procedure FreezePanes(Col, Row: Integer);
     
     property ColCount: Integer read fColCount write SetColCount;
     property Name: string read fName write fName;
@@ -304,7 +307,8 @@ procedure TWorkSheet.SaveToFile(const FileName: string);
 var
   Document: IXMLDocument;
   WorkSheet: IXMLNode;
-  
+
+  SheetViewsNode: IXMLNode;
   Cols: IXMLNode;
   MergedCells: IXMLNode;
   SheetDataNode: IXMLNode;
@@ -319,6 +323,12 @@ begin
   WorkSheet := Document.AddChild('worksheet', NAMESPACE_MAIN);
   WorkSheet.SetAttributeNS('xmlns:r',  '', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships');
 
+  SheetViewsNode := WorkSheet.AddChild('sheetViews');
+  SaveSheetViewsData(SheetViewsNode);
+  if (not SheetViewsNode.HasChildNodes) then begin
+    Document.DocumentElement.ChildNodes.Delete('sheetViews');
+  end;
+  
   Cols := WorkSheet.AddChild('cols');
   SaveColumnData(Cols);
   if (not Cols.HasChildNodes) then begin
@@ -347,6 +357,31 @@ begin
     Writer.SaveToFile(FileName);
   finally
     Writer.Free;
+  end;
+end;
+
+procedure TWorkSheet.SaveSheetViewsData(ParentNode: IXMLNode);
+var
+  SheetViewNode: IXMLNode;
+  Node: IXMLNode;
+begin
+  if ((fFrozenPaneSplit.Col <> 0) or (fFrozenPaneSplit.Row <> 0)) then begin
+    SheetViewNode := ParentNode.AddChild('sheetView');
+    SheetViewNode.Attributes['tabSelected'] := '1';
+    SheetViewNode.Attributes['workbookViewId'] := '0';
+    Node := SheetViewNode.AddChild('pane');
+
+    if (fFrozenPaneSplit.Col <> 0) then begin
+      Node.Attributes['xSplit'] := fFrozenPaneSplit.Col;
+    end; 
+
+    if (fFrozenPaneSplit.Row <> 0) then begin
+      Node.Attributes['ySplit'] := fFrozenPaneSplit.Row;
+    end;
+    
+    Node.Attributes['topLeftCell'] := GenerateColIdx(fFrozenPaneSplit.Col + 1) + IntToStr(fFrozenPaneSplit.Row + 1);
+    Node.Attributes['activePane'] :=  'bottomLeft';
+    Node.Attributes['state'] := 'frozen';
   end;
 end;
 
@@ -572,6 +607,12 @@ begin
   fPrintCols := Cols;
 end;
 
+procedure TWorkSheet.FreezePanes(Col, Row: Integer);
+begin
+  fFrozenPaneSplit.Col := Col;
+  fFrozenPaneSplit.Row := Row;
+end;
+
 procedure TWorkSheet.SetRowHeight(Index: Integer; Height: Double);
 begin
   if ((Index - 1) < fRowCount) then begin
@@ -787,19 +828,19 @@ begin
         Node.Attributes['fontId'] := fFonts.IndexOf(Rule.Font);
       end;
 
-      if ((Rule.Alignment.Horizontal <> taLeft) or (Rule.Alignment.Vertical <> taTop)) then begin
+      if ((Rule.Alignment.Horizontal <> haLeft) or (Rule.Alignment.Vertical <> vaTop)) then begin
         Alignment := Node.AddChild('alignment');
-        if (Rule.Alignment.Horizontal <> taLeft) then begin
+        if (Rule.Alignment.Horizontal <> haLeft) then begin
           case (Rule.Alignment.Horizontal) of
-            taCenter: Alignment.Attributes['horizontal'] := 'center';
-            taRight: Alignment.Attributes['horizontal'] := 'right';
+            haCenter: Alignment.Attributes['horizontal'] := 'center';
+            haRight: Alignment.Attributes['horizontal'] := 'right';
           end;
         end;
-        if (Rule.Alignment.Vertical <> taBottom) then begin
+        if (Rule.Alignment.Vertical <> vaBottom) then begin
           case (Rule.Alignment.Vertical) of
-            taTop: Alignment.Attributes['vertical'] := 'top';
-            taMiddle: Alignment.Attributes['vertical'] := 'center';
-            taBottom: Alignment.Attributes['vertical'] := 'bottom';
+            vaTop: Alignment.Attributes['vertical'] := 'top';
+            vaMiddle: Alignment.Attributes['vertical'] := 'center';
+            vaBottom: Alignment.Attributes['vertical'] := 'bottom';
           end;
         end;
       end;
