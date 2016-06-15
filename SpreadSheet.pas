@@ -235,11 +235,14 @@ const
   GROW_DELTA = 10;
 
 function GenerateColIdx(Index: Integer): string;
+const
+  LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 begin
   Result := '';
-  while (Index > 0) do begin
-    Result := Result + Chr((Index mod 26) + 64);
-    Index := Index div 26;
+  Index := Index - 1;
+  while (Index > -1) do begin
+    Result := Chr((Index mod 26) + 65) + Result;
+    Index := (Index div 26) - 1;
   end;
 end;
   
